@@ -1,5 +1,5 @@
 import { UsersRepository } from '../repositories/users.repository.js';
-import { hashPassword } from '../utils/hash.js';
+import { hashPassword, comparePassword } from '../utils/hash.js';
 
 const usersRepository = new UsersRepository();
 
@@ -48,6 +48,34 @@ export class SessionsService {
       last_name: newUser.last_name,
       email: newUser.email,
       role: newUser.role,
+    };
+  }
+
+  async loginUser({ email, password }) {
+    const genericError = new Error('Credenciales inválidas');
+    genericError.statusCode = 401;
+
+    if (!email || !password) {
+      throw genericError;
+    }
+
+    const normalizedEmail = email.trim().toLowerCase();
+    const user = await usersRepository.findByEmail(normalizedEmail);
+
+    if (!user) {
+      throw genericError;
+    }
+
+    const isValidPassword = await comparePassword(password, user.password);
+
+    if (!isValidPassword) {
+      throw genericError;
+    }
+
+    return {
+      id: user._id,
+      email: user.email,
+      role: user.role,
     };
   }
 }
