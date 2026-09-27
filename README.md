@@ -10,8 +10,9 @@ API REST para una plataforma de gestión de eventos e inscripciones, desarrollad
 - bcrypt
 - jsonwebtoken
 - cookie-parser
+- Passport.js (passport-local, passport-jwt)
 - dotenv
-- (Próximamente: Passport, Nodemailer)
+- (Próximamente: Nodemailer)
 
 ## Instalación
 
@@ -39,16 +40,16 @@ JWT_EXPIRES_IN=1h
 node src/server.js
 \`\`\`
 
-El servidor levanta en el puerto definido en `PORT` (por defecto 8080 si no se especifica), y se conecta a MongoDB usando `MONGO_URL`.
-
 ## Estructura de carpetas
 
 \`\`\`
 src/
 ├── app.js
 ├── server.js
+├── env.js
 ├── config/
-│   └── db.js
+│   ├── db.js
+│   └── passport.config.js
 ├── routes/
 ├── controllers/
 ├── services/
@@ -56,11 +57,22 @@ src/
 ├── dao/
 ├── models/
 ├── middlewares/
-│   └── auth.middleware.js
 └── utils/
     ├── hash.js
     └── jwt.js
 \`\`\`
+
+## Autenticación con Passport.js
+
+La autenticación se centraliza en `src/config/passport.config.js`, mediante tres estrategias:
+
+- **`register`** (passport-local): valida los datos de registro, normaliza el email, hashea la contraseña y crea el usuario.
+- **`login`** (passport-local): busca el usuario por email y compara la contraseña con bcrypt.
+- **`current`** (passport-jwt): lee el JWT desde la cookie `currentUser`, valida su firma y expiración, y expone el payload en `req.user`.
+
+Passport se inicializa una sola vez en `app.js` (`passport.initialize()`). Las rutas de sesiones delegan la autenticación en estas estrategias a través de un wrapper (`handlePassportAuth`), y el controller se limita a leer `req.user` y responder — la generación del JWT y el seteo de la cookie siguen ocurriendo en el controller, no en las estrategias.
+
+Esta estructura deja el sistema preparado para sumar nuevas estrategias (por ejemplo, login con Google o GitHub) agregándolas directamente en `passport.config.js`, sin modificar `app.js` ni las rutas existentes.
 
 ## Rutas disponibles
 
@@ -69,10 +81,10 @@ src/
 | GET | /api/health | Verifica que el servidor esté activo |
 | GET | /api/events | Lista de eventos (por ahora vacía) |
 | GET | /api/sessions | Endpoint de sesiones (placeholder) |
-| POST | /api/sessions/register | Registra un nuevo usuario |
-| POST | /api/sessions/login | Inicia sesión y setea la cookie de autenticación |
-| GET | /api/sessions/current | Devuelve el usuario autenticado (requiere cookie válida) |
-| POST | /api/sessions/logout | Cierra la sesión (elimina la cookie) |
+| POST | /api/sessions/register | Registra un nuevo usuario (estrategia `register`) |
+| POST | /api/sessions/login | Inicia sesión y setea la cookie de autenticación (estrategia `login`) |
+| GET | /api/sessions/current | Devuelve el usuario autenticado (estrategia `current`) |
+| POST | /api/sessions/logout | Cierra la sesión (elimina la cookie; no pasa por Passport) |
 
 ## Registro de usuarios
 
@@ -89,38 +101,30 @@ Body esperado (JSON):
 \`\`\`
 
 Respuestas posibles:
-- `201`: usuario creado, devuelve `id`, `first_name`, `last_name`, `email`, `role` (nunca la contraseña)
-- `400`: faltan campos obligatorios, o el email/contraseña no cumplen el formato mínimo
+- `201`: usuario creado
+- `400`: faltan campos, o el email/contraseña no cumplen el formato mínimo
 - `409`: el email ya está registrado
 
 ## Login
 
 `POST /api/sessions/login`
 
-Body esperado (JSON):
-\`\`\`json
-{
-  "email": "ana@mail.com",
-  "password": "Secreta123"
-}
-\`\`\`
-
 Respuestas posibles:
-- `200`: credenciales correctas. Devuelve `{ "status": "success", "message": "Login correcto" }` y setea la cookie `currentUser` (HttpOnly) con un JWT
-- `401`: credenciales inválidas (email inexistente o contraseña incorrecta; el mensaje no distingue cuál de las dos)
+- `200`: setea la cookie `currentUser` (HttpOnly)
+- `401`: credenciales inválidas (mensaje genérico, no distingue la causa)
 
 ## Usuario actual
 
 `GET /api/sessions/current`
 
-Requiere la cookie `currentUser` (se obtiene haciendo login previamente).
+Requiere la cookie `currentUser`.
 
 Respuestas posibles:
-- `200`: devuelve `{ "status": "success", "payload": { "id": "...", "email": "...", "role": "..." } }`
+- `200`: devuelve `{ id, email, role }`
 - `401`: no hay cookie, o el token es inválido/expirado
 
 ## Logout
 
 `POST /api/sessions/logout`
 
-Elimina la cookie `currentUser`. Devuelve `200` con `{ "status": "success", "message": "Sesión cerrada" }`. Después de esto, `/api/sessions/current` vuelve a responder `401`.
+Elimina la cookie `currentUser`. Después de esto, `/api/sessions/current` vuelve a responder `401`.
