@@ -8,4 +8,8 @@ export class UsersDao {
   async findByEmail(email) {
     return await User.findOne({ email });
   }
+
+  async findAll() {
+    return await User.find().select('-password');
+  }
 }

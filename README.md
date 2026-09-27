@@ -12,7 +12,6 @@ API REST para una plataforma de gestión de eventos e inscripciones, desarrollad
 - cookie-parser
 - Passport.js (passport-local, passport-jwt)
 - dotenv
-- (Próximamente: Nodemailer)
 
 ## Instalación
 
@@ -57,74 +56,75 @@ src/
 ├── dao/
 ├── models/
 ├── middlewares/
+│   ├── auth.middleware.js
+│   └── authorize.middleware.js
 └── utils/
     ├── hash.js
     └── jwt.js
 \`\`\`
 
-## Autenticación con Passport.js
+## Roles y autorización
 
-La autenticación se centraliza en `src/config/passport.config.js`, mediante tres estrategias:
+El sistema define tres roles, guardados en el campo `role` del modelo `User`:
 
-- **`register`** (passport-local): valida los datos de registro, normaliza el email, hashea la contraseña y crea el usuario.
-- **`login`** (passport-local): busca el usuario por email y compara la contraseña con bcrypt.
-- **`current`** (passport-jwt): lee el JWT desde la cookie `currentUser`, valida su firma y expiración, y expone el payload en `req.user`.
+- **`user`** (rol por defecto al registrarse): puede consultar eventos publicados.
+- **`organizer`**: además de lo anterior, puede crear eventos y modificar/cancelar los eventos que él mismo creó.
+- **`admin`**: acceso total — puede modificar cualquier evento (sea o no el creador) y ver el listado completo de usuarios.
 
-Passport se inicializa una sola vez en `app.js` (`passport.initialize()`). Las rutas de sesiones delegan la autenticación en estas estrategias a través de un wrapper (`handlePassportAuth`), y el controller se limita a leer `req.user` y responder — la generación del JWT y el seteo de la cookie siguen ocurriendo en el controller, no en las estrategias.
+El registro público (`POST /api/sessions/register`) siempre asigna `role: "user"` — no existe forma de elegir otro rol desde el body. Para promover a un usuario a `organizer` o `admin`, actualmente se hace de forma manual en la base de datos.
 
-Esta estructura deja el sistema preparado para sumar nuevas estrategias (por ejemplo, login con Google o GitHub) agregándolas directamente en `passport.config.js`, sin modificar `app.js` ni las rutas existentes.
+### Matriz de permisos
+
+| Acción | user | organizer | admin |
+|---|---|---|---|
+| Consultar eventos publicados | ✅ | ✅ | ✅ |
+| Crear eventos | ❌ | ✅ | ✅ |
+| Modificar/cancelar eventos propios | ❌ | ✅ | ✅ |
+| Modificar cualquier evento | ❌ | ❌ | ✅ |
+| Ver todos los usuarios | ❌ | ❌ | ✅ |
+
+### 401 vs 403 — la diferencia
+
+- **401 (No autenticado)**: no hay cookie de sesión válida, o el token es inválido/expirado. La API no sabe quién sos.
+- **403 (Sin permisos)**: la API sabe perfectamente quién sos (tu sesión es válida), pero tu rol, o el hecho de no ser el dueño del recurso, no te habilita a hacer esa acción puntual.
+
+Ambos casos usan middlewares separados y reutilizables:
+- `handlePassportAuth('current')` (en `passport.config.js`) responde 401 si no hay sesión.
+- `authorize(rolesPermitidos)` (en `middlewares/authorize.middleware.js`) responde 403 si el rol no está en la lista permitida.
+- La validación de "propiedad del recurso" (dueño vs. no dueño) vive en `services/events.service.js`, y también responde 403 cuando corresponde.
 
 ## Rutas disponibles
 
-| Método | Ruta | Descripción |
-|--------|------|-------------|
-| GET | /api/health | Verifica que el servidor esté activo |
-| GET | /api/events | Lista de eventos (por ahora vacía) |
-| GET | /api/sessions | Endpoint de sesiones (placeholder) |
-| POST | /api/sessions/register | Registra un nuevo usuario (estrategia `register`) |
-| POST | /api/sessions/login | Inicia sesión y setea la cookie de autenticación (estrategia `login`) |
-| GET | /api/sessions/current | Devuelve el usuario autenticado (estrategia `current`) |
-| POST | /api/sessions/logout | Cierra la sesión (elimina la cookie; no pasa por Passport) |
+| Método | Ruta | Acceso | Descripción |
+|--------|------|--------|-------------|
+| GET | /api/health | Público | Verifica que el servidor esté activo |
+| POST | /api/sessions/register | Público | Registra un nuevo usuario (rol `user` por defecto) |
+| POST | /api/sessions/login | Público | Inicia sesión, setea la cookie `currentUser` |
+| GET | /api/sessions/current | Autenticado | Devuelve el usuario logueado |
+| POST | /api/sessions/logout | Público | Cierra la sesión |
+| GET | /api/events | Público | Lista de eventos |
+| POST | /api/events | organizer, admin | Crea un evento (el organizer se asigna automáticamente) |
+| PUT | /api/events/:id | Dueño del evento, o admin | Modifica un evento |
+| GET | /api/users | admin | Lista todos los usuarios (sin contraseñas) |
 
-## Registro de usuarios
+## Ejemplos de request/response
 
-`POST /api/sessions/register`
-
-Body esperado (JSON):
+`POST /api/events` con rol `user` → 403:
 \`\`\`json
-{
-  "first_name": "Ana",
-  "last_name": "Pérez",
-  "email": "ana@mail.com",
-  "password": "Secreta123"
-}
+{ "status": "error", "message": "No tenés permisos para realizar esta acción" }
 \`\`\`
 
-Respuestas posibles:
-- `201`: usuario creado
-- `400`: faltan campos, o el email/contraseña no cumplen el formato mínimo
-- `409`: el email ya está registrado
+`POST /api/events` con rol `organizer` o `admin` → 201:
+\`\`\`json
+{ "status": "success", "payload": { "id": "...", "title": "Congreso Tech 2026", "organizer": "..." } }
+\`\`\`
 
-## Login
+Ruta privada sin cookie → 401:
+\`\`\`json
+{ "status": "error", "message": "No autenticado" }
+\`\`\`
 
-`POST /api/sessions/login`
-
-Respuestas posibles:
-- `200`: setea la cookie `currentUser` (HttpOnly)
-- `401`: credenciales inválidas (mensaje genérico, no distingue la causa)
-
-## Usuario actual
-
-`GET /api/sessions/current`
-
-Requiere la cookie `currentUser`.
-
-Respuestas posibles:
-- `200`: devuelve `{ id, email, role }`
-- `401`: no hay cookie, o el token es inválido/expirado
-
-## Logout
-
-`POST /api/sessions/logout`
-
-Elimina la cookie `currentUser`. Después de esto, `/api/sessions/current` vuelve a responder `401`.
+`PUT /api/events/:id` sobre un evento ajeno (siendo `organizer`, no `admin`) → 403:
+\`\`\`json
+{ "status": "error", "message": "No podés modificar un evento que no te pertenece" }
+\`\`\`

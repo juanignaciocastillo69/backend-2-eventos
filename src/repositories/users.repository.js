@@ -10,4 +10,8 @@ export class UsersRepository {
   async findByEmail(email) {
     return await dao.findByEmail(email);
   }
+
+  async findAll() {
+    return await dao.findAll();
+  }
 }
