@@ -12,4 +12,15 @@ export class EventsDao {
   async update(id, updateData) {
     return await Event.findByIdAndUpdate(id, updateData, { new: true });
   }
+
+  async findWithFilters(filters, { page, limit, sort }) {
+    const skip = (page - 1) * limit;
+
+    const [data, total] = await Promise.all([
+      Event.find(filters).sort(sort).skip(skip).limit(limit),
+      Event.countDocuments(filters),
+    ]);
+
+    return { data, total };
+  }
 }

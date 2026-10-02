@@ -14,4 +14,8 @@ export class EventsRepository {
   async update(id, updateData) {
     return await dao.update(id, updateData);
   }
+
+  async findWithFilters(filters, pagination) {
+    return await dao.findWithFilters(filters, pagination);
+  }
 }
