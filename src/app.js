@@ -5,6 +5,7 @@ import healthRouter from './routes/health.router.js';
 import eventsRouter from './routes/events.router.js';
 import sessionsRouter from './routes/sessions.router.js';
 import usersRouter from './routes/users.router.js';
+import ticketsRouter from './routes/tickets.router.js';
 
 const app = express();
 
@@ -15,5 +16,6 @@ app.use('/api', healthRouter);
 app.use('/api', eventsRouter);
 app.use('/api', sessionsRouter);
 app.use('/api', usersRouter);
+app.use('/api', ticketsRouter);
 
 export default app;
