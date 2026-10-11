@@ -1,13 +1,15 @@
-export const authorize = (allowedRoles) => {
-  return (req, res, next) => {
-    if (!req.user) {
-      return res.status(401).json({ status: 'error', message: 'No autenticado' });
-    }
+export const authorize = (allowedRoles) => (req, res, next) => {
+  if (!req.user) {
+    const error = new Error('No autenticado');
+    error.statusCode = 401;
+    return next(error);
+  }
 
-    if (!allowedRoles.includes(req.user.role)) {
-      return res.status(403).json({ status: 'error', message: 'No tenés permisos para realizar esta acción' });
-    }
+  if (!allowedRoles.includes(req.user.role)) {
+    const error = new Error('No tenés permisos para realizar esta acción');
+    error.statusCode = 403;
+    return next(error);
+  }
 
-    next();
-  };
+  next();
 };

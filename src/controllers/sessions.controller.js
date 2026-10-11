@@ -1,25 +1,17 @@
 import { generateToken } from '../utils/jwt.js';
+import { toUserDTO, toCurrentUserDTO } from '../dto/user.dto.js';
+
 export const getSessions = (req, res) => {
   res.json({ status: 'success', message: 'Sessions endpoint - por implementar' });
 };
 
 export const register = (req, res) => {
-  const newUser = req.user;
-  res.status(201).json({
-    status: 'success',
-    payload: {
-      id: newUser._id,
-      first_name: newUser.first_name,
-      last_name: newUser.last_name,
-      email: newUser.email,
-      role: newUser.role,
-    },
-  });
+  res.status(201).json({ status: 'success', payload: toUserDTO(req.user) });
 };
 
 export const login = (req, res) => {
-  const user = req.user;
-  const token = generateToken({ id: user._id, email: user.email, role: user.role });
+  const { _id, email, role } = req.user;
+  const token = generateToken({ id: _id.toString(), email, role });
 
   res.cookie('currentUser', token, {
     httpOnly: true,
@@ -32,8 +24,7 @@ export const login = (req, res) => {
 };
 
 export const current = (req, res) => {
-  const { id, email, role } = req.user;
-  res.status(200).json({ status: 'success', payload: { id, email, role } });
+  res.status(200).json({ status: 'success', payload: toCurrentUserDTO(req.user) });
 };
 
 export const logout = (req, res) => {

@@ -6,6 +6,7 @@ import eventsRouter from './routes/events.router.js';
 import sessionsRouter from './routes/sessions.router.js';
 import usersRouter from './routes/users.router.js';
 import ticketsRouter from './routes/tickets.router.js';
+import { notFoundHandler, errorHandler } from './middlewares/error.middleware.js';
 
 const app = express();
 
@@ -17,5 +18,8 @@ app.use('/api', eventsRouter);
 app.use('/api', sessionsRouter);
 app.use('/api', usersRouter);
 app.use('/api', ticketsRouter);
+
+app.use(notFoundHandler);
+app.use(errorHandler);
 
 export default app;

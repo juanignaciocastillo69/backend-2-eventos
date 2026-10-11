@@ -15,7 +15,7 @@ export class TicketsRepository {
     return await dao.findActiveByUserAndEvent(userId, eventId);
   }
 
-  async getOccupiedQuota(eventId) {
+  async countActiveTickets(eventId) {
     return await dao.getOccupiedQuota(eventId);
   }
 
@@ -27,7 +27,7 @@ export class TicketsRepository {
     return await dao.findByEvent(eventId);
   }
 
-  async update(id, updateData) {
-    return await dao.update(id, updateData);
+  async cancelTicket(id) {
+    return await dao.update(id, { status: 'cancelled', cancelledAt: new Date() });
   }
 }

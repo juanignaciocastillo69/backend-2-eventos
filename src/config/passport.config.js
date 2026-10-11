@@ -1,6 +1,6 @@
 import passport from 'passport';
 import { Strategy as LocalStrategy } from 'passport-local';
-import { Strategy as JwtStrategy, ExtractJwt } from 'passport-jwt';
+import { Strategy as JwtStrategy } from 'passport-jwt';
 import { UsersRepository } from '../repositories/users.repository.js';
 import { hashPassword, comparePassword } from '../utils/hash.js';
 
@@ -96,23 +96,5 @@ passport.use('current', new JwtStrategy(
   }
 ));
 
-export const handlePassportAuth = (strategyName) => {
-  return (req, res, next) => {
-    passport.authenticate(strategyName, { session: false }, (error, user, info) => {
-      if (error) {
-        return res.status(500).json({ status: 'error', message: 'Error interno del servidor' });
-      }
-
-      if (!user) {
-        const statusCode = info?.statusCode || 401;
-        const message = info?.message || 'No autorizado';
-        return res.status(statusCode).json({ status: 'error', message });
-      }
-
-      req.user = user;
-      next();
-    })(req, res, next);
-  };
-};
 
 export default passport;

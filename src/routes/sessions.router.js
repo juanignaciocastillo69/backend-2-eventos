@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { handlePassportAuth } from '../config/passport.config.js';
+import { handlePassportAuth } from '../middlewares/passport-auth.middleware.js';
 import { getSessions, register, login, current, logout } from '../controllers/sessions.controller.js';
 
 const router = Router();

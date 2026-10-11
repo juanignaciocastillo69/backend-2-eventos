@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { getMyTickets, cancelTicket } from '../controllers/tickets.controller.js';
-import { handlePassportAuth } from '../config/passport.config.js';
+import { handlePassportAuth } from '../middlewares/passport-auth.middleware.js';
 
 const router = Router();
 

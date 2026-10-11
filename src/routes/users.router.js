@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { getAllUsers } from '../controllers/users.controller.js';
-import { handlePassportAuth } from '../config/passport.config.js';
+import { handlePassportAuth } from '../middlewares/passport-auth.middleware.js';
 import { authorize } from '../middlewares/authorize.middleware.js';
 
 const router = Router();

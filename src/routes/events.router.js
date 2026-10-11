@@ -7,7 +7,7 @@ import {
   updateEventStatus,
 } from '../controllers/events.controller.js';
 import { createTicket, getEventTickets } from '../controllers/tickets.controller.js';
-import { handlePassportAuth } from '../config/passport.config.js';
+import { handlePassportAuth } from '../middlewares/passport-auth.middleware.js';
 import { authorize } from '../middlewares/authorize.middleware.js';
 
 const router = Router();

@@ -32,16 +32,16 @@ export class TicketsService {
     const existingTicket = await ticketsRepository.findActiveByUserAndEvent(user.id, eventId);
     if (existingTicket) {
       const error = new Error('Ya tenés una inscripción activa para este evento');
-      error.statusCode = 400;
+      error.statusCode = 409;
       throw error;
     }
 
-    const occupied = await ticketsRepository.getOccupiedQuota(eventId);
+    const occupied = await ticketsRepository.countActiveTickets(eventId);
     const available = event.capacity - occupied;
 
     if (available < parsedQuantity) {
       const error = new Error(`No hay cupos suficientes. Disponibles: ${available}`);
-      error.statusCode = 400;
+      error.statusCode = 409;
       throw error;
     }
 
@@ -88,10 +88,7 @@ export class TicketsService {
       throw error;
     }
 
-    const updatedTicket = await ticketsRepository.update(ticketId, {
-      status: 'cancelled',
-      cancelledAt: new Date(),
-    });
+    const updatedTicket = await ticketsRepository.cancelTicket(ticketId);
 
     return updatedTicket;
   }
